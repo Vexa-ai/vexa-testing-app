@@ -50,16 +50,6 @@ class ApiOperations:
                 logger.info(f"Add token result: {result}")
                 return result
 
-    async def get_connections(self):
-        """Get list of connections from API."""
-        async with aiohttp.ClientSession() as session:
-            url = f"{self.base_url}/api/v1/connections/list"
-            async with session.get(url, headers=self.service_headers) as response:
-                response.raise_for_status()
-                connections = await response.json()
-                logger.info(f"Connections: {connections}")
-                return connections
-
 async def main():
     """Main function to orchestrate all operations."""
     if not config.USER_TOKEN:
@@ -83,13 +73,8 @@ async def main():
     replay = ApiReplay('api_calls.json')
     await replay.replay_calls()
     
-    # 4. Check connections
-    logger.info("Checking connections...")
-    connections = await api.get_connections()
-    
     # Log final status
     logger.info("All operations completed successfully!")
-    logger.info(f"Final connections state: {connections}")
 
 if __name__ == '__main__':
     asyncio.run(main()) 

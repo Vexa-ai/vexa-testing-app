@@ -1,7 +1,12 @@
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from datetime import datetime
+import codecs
+import logging
+import base64
 from haralyzer import HarParser, HarEntry
+
+logger = logging.getLogger(__name__)
 
 class ApiCall(BaseModel):
     """Base model for API calls from the HAR file."""
@@ -22,7 +27,16 @@ class ApiCall(BaseModel):
         # Get body data if present
         body = None
         if 'postData' in request:
-            body = request['postData'].get('text', '').encode('utf-8')
+            try:
+                # Try to get raw binary data first
+                if 'text' in request['postData']:
+                    # The data in HAR is raw bytes represented as a string
+                    # We need to encode it as latin1 to get the raw bytes back
+                    body = request['postData']['text'].encode('latin1')
+                    logger.debug(f"Successfully decoded binary data, size: {len(body)} bytes")
+            except Exception as e:
+                logger.error(f"Failed to decode binary data: {str(e)}")
+                body = None
         
         return {
             'method': request['method'],
