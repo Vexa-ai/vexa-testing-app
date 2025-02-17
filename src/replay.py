@@ -24,9 +24,28 @@ class ApiReplay:
         
     async def load_har_file(self) -> HarProcessor:
         """Load and parse HAR file."""
-        with open(self.har_file_path, 'r') as f:
-            data = json.load(f)
-            return HarProcessor(data)
+        try:
+            if not os.path.exists(self.har_file_path):
+                raise FileNotFoundError(f"HAR file not found: {self.har_file_path}")
+            
+            with open(self.har_file_path, 'r', encoding='utf-8') as f:
+                try:
+                    data = json.load(f)
+                    if not isinstance(data, dict) or 'log' not in data:
+                        raise ValueError("Invalid HAR file format - missing 'log' entry")
+                    return HarProcessor(data)
+                except json.JSONDecodeError as e:
+                    logger.error(f"JSON parsing error at line {e.lineno}, column {e.colno}")
+                    logger.error(f"Error message: {str(e)}")
+                    # Try to show the problematic line
+                    with open(self.har_file_path, 'r', encoding='utf-8') as f2:
+                        lines = f2.readlines()
+                        if e.lineno <= len(lines):
+                            logger.error(f"Problematic line: {lines[e.lineno-1].strip()}")
+                    raise
+        except Exception as e:
+            logger.error(f"Failed to load HAR file: {str(e)}")
+            raise
             
     def _calculate_delay(self, current: datetime, previous: datetime) -> float:
         """Calculate delay between calls, applying time scale."""
@@ -95,14 +114,25 @@ class ApiReplay:
                     all_calls.append((call.timestamp, ('audio', call)))
                     logger.info(f"Found audio call - connection: {call.connection_id}, index: {call.chunk_index}, timestamp: {call.timestamp}")
                 elif '/extension/speakers' in entry.url:
-                    call = SpeakersCall.from_har_entry(entry.raw_entry)
-                    all_calls.append((call.timestamp, ('speaker', call)))
-                    logger.info(f"Found speaker call - connection: {call.connection_id}, timestamp: {call.timestamp}")
+                    # Check if this is a valid speakers call with connection_id
+                    query = {q['name']: q['value'] for q in entry.raw_entry['request']['queryString']}
+                    if 'connection_id' in query:
+                        try:
+                            call = SpeakersCall.from_har_entry(entry.raw_entry)
+                            all_calls.append((call.timestamp, ('speaker', call)))
+                            logger.info(f"Found speaker call - connection: {call.connection_id}, timestamp: {call.timestamp}")
+                        except Exception as e:
+                            logger.warning(f"Skipping invalid speakers call: {str(e)}")
+                    else:
+                        logger.info(f"Skipping speakers call without connection_id: {entry.url}")
 
             if not all_calls:
                 logger.warning("No calls found to replay")
                 return
 
+            # Sort calls by timestamp
+            all_calls.sort(key=lambda x: x[0])
+            
             # Collect audio calls for validation only
             audio_calls = [call for _, (type_, call) in all_calls if type_ == 'audio']
             

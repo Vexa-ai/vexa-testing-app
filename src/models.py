@@ -78,12 +78,35 @@ class SpeakersCall(ApiCall):
         base_data = ApiCall.from_har_entry(entry)
         query = {q['name']: q['value'] for q in entry['request']['queryString']}
         
-        return cls(
-            **base_data,
-            connection_id=query['connection_id'],
-            meeting_id=query['meeting_id'],
-            call_name=query.get('call_name', '')
-        )
+        # Log the query parameters for debugging
+        logger.debug(f"Speaker call query parameters: {query}")
+        
+        # Add error handling with helpful messages
+        try:
+            connection_id = query.get('connection_id')
+            meeting_id = query.get('meeting_id')
+            
+            if not connection_id:
+                logger.error(f"Missing connection_id in speakers call. URL: {entry['request']['url']}")
+                logger.error(f"Available query params: {query}")
+                raise ValueError("Missing required parameter: connection_id")
+                
+            if not meeting_id:
+                logger.error(f"Missing meeting_id in speakers call. URL: {entry['request']['url']}")
+                logger.error(f"Available query params: {query}")
+                raise ValueError("Missing required parameter: meeting_id")
+            
+            return cls(
+                **base_data,
+                connection_id=connection_id,
+                meeting_id=meeting_id,
+                call_name=query.get('call_name', '')  # This one is optional
+            )
+        except Exception as e:
+            logger.error(f"Failed to create SpeakersCall from entry: {str(e)}")
+            logger.error(f"Request URL: {entry['request']['url']}")
+            logger.error(f"Query parameters: {query}")
+            raise
 
 class HarProcessor:
     """Class for processing HAR files."""
@@ -101,9 +124,18 @@ class HarProcessor:
     
     def get_speaker_calls(self) -> List[SpeakersCall]:
         """Extract all speaker calls from HAR file."""
-        return [
-            SpeakersCall.from_har_entry(entry.raw_entry)
-            for page in self.parser.pages
-            for entry in page.entries
-            if '/extension/speakers' in entry.url
-        ] 
+        valid_calls = []
+        for page in self.parser.pages:
+            for entry in page.entries:
+                if '/extension/speakers' in entry.url:
+                    # Check if this is a valid speakers call with connection_id
+                    query = {q['name']: q['value'] for q in entry.raw_entry['request']['queryString']}
+                    if 'connection_id' in query:
+                        try:
+                            call = SpeakersCall.from_har_entry(entry.raw_entry)
+                            valid_calls.append(call)
+                        except Exception as e:
+                            logger.warning(f"Skipping invalid speakers call: {str(e)}")
+                    else:
+                        logger.info(f"Skipping speakers call without connection_id: {entry.url}")
+        return valid_calls 

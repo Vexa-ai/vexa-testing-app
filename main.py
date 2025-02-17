@@ -41,7 +41,7 @@ class ApiOperations:
             url = f"{self.base_url}/api/v1/users/add-token"
             data = {
                 "token": config.USER_TOKEN,
-                "user_id": "mock_user",
+                "user_id": "00000000-0000-4000-a000-000000000001",
                 "enable_status": True
             }
             async with session.post(url, headers=self.service_headers, json=data) as response:
