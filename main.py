@@ -57,34 +57,41 @@ async def main():
     if not config.SERVICE_TOKEN:
         raise ValueError("SERVICE_TOKEN must be set in environment variables")
 
-    # Get or create user credentials
+    # Initialize credentials manager
     credentials_manager = UserCredentialsManager()
-    credentials = await credentials_manager.get_or_create_credentials(
-        engine_url=config.ENGINE_URL,
-        engine_token=config.ENGINE_TOKEN
-    )
     
-    user_token = credentials["token"]
-    user_id = credentials["user_id"]
+    # Get or create user credentials
+    try:
+        credentials = await credentials_manager.get_or_create_credentials(
+            engine_url=config.ENGINE_URL,
+            engine_token=config.ENGINE_TOKEN
+        )
+    except Exception as e:
+        logger.error(f"Failed to get/create credentials: {e}")
+        raise
 
-    api = ApiOperations(user_token)
+    # Initialize API operations
+    api = ApiOperations(credentials["token"])
     
-    # 1. Flush caches
-    logger.info("Flushing caches...")
-    await api.flush_cache()
-    await api.flush_admin_cache()
-    
-    # 2. Add user token
-    logger.info("Adding user token...")
-    await api.add_user_token(user_id)
-    
-    # 3. Replay calls (this will also store data)
-    logger.info("Starting replay...")
-    replay = ApiReplay('api_calls.json', user_token=user_token)
-    await replay.replay_calls()
-    
-    # Log final status
-    logger.info("All operations completed successfully!")
+    try:
+        # 1. Flush caches
+        logger.info("Flushing caches...")
+        await api.flush_cache()
+        await api.flush_admin_cache()
+        
+        # 2. Add user token
+        logger.info("Adding user token...")
+        await api.add_user_token(credentials["user_id"])
+        
+        # 3. Replay calls
+        logger.info("Starting replay...")
+        replay = ApiReplay('api_calls.json', user_token=credentials["token"])
+        await replay.replay_calls()
+        
+        logger.info("All operations completed successfully!")
+    except Exception as e:
+        logger.error(f"Operation failed: {e}")
+        raise
 
 if __name__ == '__main__':
     asyncio.run(main()) 
