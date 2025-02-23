@@ -6,7 +6,7 @@
 *.pyz
 *.pywz
 
-
 .env
 api_calls.json
 *.webm
+user_credentials.json

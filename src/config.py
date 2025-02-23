@@ -21,6 +21,10 @@ class Config(BaseModel):
     PRESERVE_TIMING: bool = os.getenv('PRESERVE_TIMING', 'true').lower() == 'true'
     TIME_SCALE: float = float(os.getenv('TIME_SCALE', '1.0'))  # Can speed up or slow down replay
     
+    # New properties
+    ENGINE_URL: str = os.getenv('ENGINE_URL', 'http://localhost:8010')
+    ENGINE_TOKEN: str = os.getenv('ENGINE_TOKEN')
+    
     class Config:
         frozen = True
 

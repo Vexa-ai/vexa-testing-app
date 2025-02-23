@@ -68,12 +68,12 @@ class AudioCall(ApiCall):
 
 class SpeakersCall(ApiCall):
     """Model for speakers endpoint calls."""
-    connection_id: str
+    connection_id: Optional[str]  # Now optional
     meeting_id: str
-    call_name: str
+    call_name: Optional[str] = None  # Now optional
     
     @classmethod
-    def from_har_entry(cls, entry: Dict[str, Any]) -> 'SpeakersCall':
+    def from_har_entry(cls, entry: Dict[str, Any]) -> Optional['SpeakersCall']:
         """Create SpeakersCall from HAR entry."""
         base_data = ApiCall.from_har_entry(entry)
         query = {q['name']: q['value'] for q in entry['request']['queryString']}
@@ -81,32 +81,25 @@ class SpeakersCall(ApiCall):
         # Log the query parameters for debugging
         logger.debug(f"Speaker call query parameters: {query}")
         
-        # Add error handling with helpful messages
         try:
             connection_id = query.get('connection_id')
             meeting_id = query.get('meeting_id')
             
-            if not connection_id:
-                logger.error(f"Missing connection_id in speakers call. URL: {entry['request']['url']}")
-                logger.error(f"Available query params: {query}")
-                raise ValueError("Missing required parameter: connection_id")
-                
             if not meeting_id:
-                logger.error(f"Missing meeting_id in speakers call. URL: {entry['request']['url']}")
-                logger.error(f"Available query params: {query}")
-                raise ValueError("Missing required parameter: meeting_id")
+                logger.warning(f"Missing meeting_id in speakers call. URL: {entry['request']['url']}")
+                return None
             
             return cls(
                 **base_data,
-                connection_id=connection_id,
+                connection_id=connection_id,  # Can be None
                 meeting_id=meeting_id,
-                call_name=query.get('call_name', '')  # This one is optional
+                call_name=query.get('call_name', '')  # Optional
             )
         except Exception as e:
-            logger.error(f"Failed to create SpeakersCall from entry: {str(e)}")
-            logger.error(f"Request URL: {entry['request']['url']}")
-            logger.error(f"Query parameters: {query}")
-            raise
+            logger.warning(f"Failed to create SpeakersCall from entry: {str(e)}")
+            logger.warning(f"Request URL: {entry['request']['url']}")
+            logger.warning(f"Query parameters: {query}")
+            return None
 
 class HarProcessor:
     """Class for processing HAR files."""
@@ -128,14 +121,10 @@ class HarProcessor:
         for page in self.parser.pages:
             for entry in page.entries:
                 if '/extension/speakers' in entry.url:
-                    # Check if this is a valid speakers call with connection_id
-                    query = {q['name']: q['value'] for q in entry.raw_entry['request']['queryString']}
-                    if 'connection_id' in query:
-                        try:
-                            call = SpeakersCall.from_har_entry(entry.raw_entry)
+                    try:
+                        call = SpeakersCall.from_har_entry(entry.raw_entry)
+                        if call:  # Only add valid calls
                             valid_calls.append(call)
-                        except Exception as e:
-                            logger.warning(f"Skipping invalid speakers call: {str(e)}")
-                    else:
-                        logger.info(f"Skipping speakers call without connection_id: {entry.url}")
+                    except Exception as e:
+                        logger.warning(f"Skipping invalid speakers call: {str(e)}")
         return valid_calls 

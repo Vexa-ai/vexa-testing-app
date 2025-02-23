@@ -8,7 +8,7 @@ import uuid
 
 from .config import config
 from .models import AudioCall, SpeakersCall, HarProcessor
-from .client import StreamqueueClient
+from .client import StreamqueueClient, Client
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -16,19 +16,23 @@ logger = logging.getLogger(__name__)
 class ApiReplay:
     """Class for replaying API calls from HAR file."""
     
-    def __init__(self, har_file_path: str):
-        self.har_file_path = har_file_path
-        self.client = StreamqueueClient()
+    def __init__(self, filename: str, user_token: str = None):
+        self.filename = filename
+        self.client = Client(
+            user_token=user_token,  # Pass the token to the Client
+            meeting_id=config.DEFAULT_MEETING_ID,
+            connection_id=config.DEFAULT_CONNECTION_ID
+        )
         self.output_dir = "output_audio"
         os.makedirs(self.output_dir, exist_ok=True)
         
     async def load_har_file(self) -> HarProcessor:
         """Load and parse HAR file."""
         try:
-            if not os.path.exists(self.har_file_path):
-                raise FileNotFoundError(f"HAR file not found: {self.har_file_path}")
+            if not os.path.exists(self.filename):
+                raise FileNotFoundError(f"HAR file not found: {self.filename}")
             
-            with open(self.har_file_path, 'r', encoding='utf-8') as f:
+            with open(self.filename, 'r', encoding='utf-8') as f:
                 try:
                     data = json.load(f)
                     if not isinstance(data, dict) or 'log' not in data:
@@ -38,7 +42,7 @@ class ApiReplay:
                     logger.error(f"JSON parsing error at line {e.lineno}, column {e.colno}")
                     logger.error(f"Error message: {str(e)}")
                     # Try to show the problematic line
-                    with open(self.har_file_path, 'r', encoding='utf-8') as f2:
+                    with open(self.filename, 'r', encoding='utf-8') as f2:
                         lines = f2.readlines()
                         if e.lineno <= len(lines):
                             logger.error(f"Problematic line: {lines[e.lineno-1].strip()}")
@@ -225,7 +229,7 @@ async def main():
     if not config.USER_TOKEN:
         raise ValueError("USER_TOKEN must be set in environment variables")
         
-    replay = ApiReplay('api_calls.json')
+    replay = ApiReplay('api_calls.json', config.USER_TOKEN)
     await replay.replay_calls()
     
 if __name__ == '__main__':
