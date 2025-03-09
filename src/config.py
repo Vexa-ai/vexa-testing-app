@@ -7,7 +7,7 @@ load_dotenv()
 
 class Config(BaseModel):
     """Configuration settings for the mock extension."""
-    STREAMQUEUE_URL: str = os.getenv('STREAMQUEUE_URL', '')
+    TRANSCRIPTION_SERVICE_API_URL: str = os.getenv('TRANSCRIPTION_SERVICE_API_URL', '')
     USER_TOKEN: str = os.getenv('USER_TOKEN', '')  # Will be required
     SERVICE_TOKEN: str = os.getenv('SERVICE_TOKEN', '')  # Will be required
     DEFAULT_MEETING_ID: str = os.getenv('DEFAULT_MEETING_ID', 'mock-meeting')

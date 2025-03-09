@@ -10,3 +10,4 @@
 api_calls.json
 *.webm
 user_credentials.json
+.env

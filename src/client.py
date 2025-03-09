@@ -16,7 +16,7 @@ class StreamqueueClient:
     """Async client for making API calls to Streamqueue."""
     
     def __init__(self, session: Optional[aiohttp.ClientSession] = None):
-        self.base_url = config.STREAMQUEUE_URL.rstrip('/')  # Remove trailing slash if present
+        self.base_url = config.TRANSCRIPTION_SERVICE_API_URL.rstrip('/')  # Remove trailing slash if present
         self.token = config.USER_TOKEN
         logger.info(f"Initialized client with base URL: {self.base_url}")
         

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 class ApiOperations:
     def __init__(self, user_token: str):
-        self.base_url = config.STREAMQUEUE_URL.rstrip('/')
+        self.base_url = config.TRANSCRIPTION_SERVICE_API_URL.rstrip('/')
         # For tools and connections endpoints we need service token
         self.service_headers = {'Authorization': f'Bearer {config.SERVICE_TOKEN}'}
         # For extension endpoints we need user token
